@@ -142,7 +142,7 @@ Message: ${t.body}`;
   const GEMINI_KEY = "PASTE_YOUR_KEY_HERE";
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${AIzaSyAN2Z_ERCIagnMasTVYk98JCL7LagWCwOo}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${"AIzaSyAN2Z_ERCIagnMasTVYk98JCL7LagWCwOo"}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -153,11 +153,16 @@ Message: ${t.body}`;
   );
 
   const data = await res.json();
-  const raw = data.candidates[0].content.parts[0].text;
+  console.log("Gemini response:", JSON.stringify(data));
+  console.log("Full data:", JSON.stringify(data));
+const candidates = data.candidates || data.promptFeedback;
+if (!candidates) throw new Error(JSON.stringify(data));
+const raw = data.candidates[0].content.parts[0].text;
   const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
   setResults(r => ({ ...r, [t.id]: parsed }));
 } catch (e) {
-  setResults(r => ({ ...r, [t.id]: { error: "Failed to analyze ticket." } }));
+  console.error("Full error:", e);
+  setResults(r => ({ ...r, [t.id]: { error: e.message || "Failed to analyze ticket." } }));
 }
     setLoading(false);
   }
@@ -356,45 +361,31 @@ Message: ${t.body}`;
 
                 {/* Suggested Response */}
                 {result && !result.error && !loading && (
-                  <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
-                    <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div className="flex items-center gap-2">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                        <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI-Drafted First Response</span>
-                      </div>
-                      {!showResponse[selected] && (
-                        <button onClick={() => setShowResponse(r => ({ ...r, [selected]: true }))}
-                          className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all hover:opacity-90"
-                          style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", color: "white" }}>
-                          Generate Response
-                        </button>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      {!showResponse[selected] ? (
-                        <div className="text-sm text-slate-600 italic">Click "Generate Response" to draft a professional first-response email.</div>
-                      ) : (
-                        <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap font-mono text-xs">
-                          <TypingText
-                            text={result.suggested_response}
-                            speed={10}
-                            onDone={() => setTypingDone(r => ({ ...r, [selected]: true }))}
-                          />
-                          {typingDone[selected] && (
-                            <div className="mt-4 flex gap-2">
-                              <button className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.2)" }}>
-                                ✓ Send Response
-                              </button>
-                              <button className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "rgba(255,255,255,0.05)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
-                                Edit Draft
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+  <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+    <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Your Response</span>
+      <span className="ml-2 text-xs text-slate-600">— compose your reply as the TAM</span>
+    </div>
+    <div className="p-4">
+      <textarea
+        rows={6}
+        placeholder={`Hi ${ticket.from.split(" ")[0]},\n\nThank you for reaching out...`}
+        className="w-full rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
+        style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0", lineHeight: "1.6" }}
+      />
+      <div className="flex gap-2 mt-3">
+        <button className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", color: "white" }}>
+          ✓ Send Response
+        </button>
+        <button className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "rgba(255,255,255,0.05)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
+          Save Draft
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+                
               </div>
             )}
           </div>
