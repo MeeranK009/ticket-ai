@@ -131,34 +131,34 @@ export default function App() {
     setShowResponse(r => ({ ...r, [t.id]: false }));
     setTypingDone(r => ({ ...r, [t.id]: false }));
 
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: `You are an expert Technical Account Manager AI assistant for a B2B SaaS/FinTech company. Analyze incoming support tickets and return ONLY a JSON object (no markdown, no backticks) with these fields:
-{
-  "priority": one of ["Critical","High","Medium","Low"],
-  "category": one of ["Technical Incident","API / Integration","SLA / Contract","Billing","Onboarding","General Inquiry"],
-  "sentiment": one of ["Frustrated","Neutral","Urgent","Positive"],
-  "estimated_resolution_mins": integer,
-  "routing": string (which team to route to, e.g. "Backline Engineering", "TAM", "Finance", "Onboarding"),
-  "summary": string (one crisp sentence summarizing the issue),
-  "suggested_response": string (a professional, empathetic first-response email from a Technical Account Manager. Use the customer's name. Be concise but warm. Include next steps. 3-5 sentences.)
-}`,
-          messages: [{ role: "user", content: `Ticket from ${t.from} at ${t.company}.\nSubject: ${t.subject}\n\nMessage: ${t.body}` }],
-        }),
-      });
+try {
+  const prompt = `You are an expert Technical Account Manager AI assistant for a B2B SaaS/FinTech company. Analyze this support ticket and return ONLY a JSON object (no markdown, no backticks) with these exact fields:
+{"priority":"Critical|High|Medium|Low","category":"Technical Incident|API / Integration|SLA / Contract|Billing|Onboarding|General Inquiry","sentiment":"Frustrated|Neutral|Urgent|Positive","estimated_resolution_mins":integer,"routing":"which team e.g. Backline Engineering / TAM / Finance / Onboarding","summary":"one crisp sentence summarizing the issue","suggested_response":"a professional empathetic first-response email from a TAM using the customer name with next steps in 3-5 sentences"}
 
-      const data = await res.json();
-      const raw = data.content.find(c => c.type === "text")?.text || "{}";
-      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
-      setResults(r => ({ ...r, [t.id]: parsed }));
-    } catch (e) {
-      setResults(r => ({ ...r, [t.id]: { error: "Failed to analyze ticket." } }));
+Ticket from ${t.from} at ${t.company}.
+Subject: ${t.subject}
+Message: ${t.body}`;
+
+  const GEMINI_KEY = "PASTE_YOUR_KEY_HERE";
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${AIzaSyAN2Z_ERCIagnMasTVYk98JCL7LagWCwOo}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      }),
     }
+  );
+
+  const data = await res.json();
+  const raw = data.candidates[0].content.parts[0].text;
+  const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+  setResults(r => ({ ...r, [t.id]: parsed }));
+} catch (e) {
+  setResults(r => ({ ...r, [t.id]: { error: "Failed to analyze ticket." } }));
+}
     setLoading(false);
   }
 
