@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 
 const SAMPLE_TICKETS = [
   {
@@ -48,6 +48,49 @@ const SAMPLE_TICKETS = [
   },
 ];
 
+const DEMO_RESULTS = {
+  "TKT-00412": {
+    priority: "High",
+    category: "API / Integration",
+    sentiment: "Frustrated",
+    estimated_resolution_mins: 120,
+    routing: "Backline Engineering",
+    summary: "Intermittent 500 errors on /v2/reconcile endpoint causing 30% batch job failure rate ahead of a critical board review.",
+  },
+  "TKT-00413": {
+    priority: "Medium",
+    category: "API / Integration",
+    sentiment: "Neutral",
+    estimated_resolution_mins: 60,
+    routing: "TAM",
+    summary: "Webhook receiver breaking after API version upgrade due to undocumented payload structure changes.",
+  },
+  "TKT-00414": {
+    priority: "Critical",
+    category: "Technical Incident",
+    sentiment: "Urgent",
+    estimated_resolution_mins: 45,
+    routing: "Backline Engineering",
+    summary: "All Visa card payments declining on Qiwa Platform production gateway since 11:45 GST causing significant revenue loss per hour.",
+  },
+  "TKT-00415": {
+    priority: "Medium",
+    category: "SLA / Contract",
+    sentiment: "Frustrated",
+    estimated_resolution_mins: 30,
+    routing: "TAM",
+    summary: "Customer questioning weekend SLA response time commitments after a 4-hour delay on a P2 issue last Saturday.",
+  },
+  "TKT-00416": {
+    priority: "Low",
+    category: "Onboarding",
+    sentiment: "Neutral",
+    estimated_resolution_mins: 20,
+    routing: "Onboarding",
+    summary: "New customer awaiting sandbox API credentials to begin a 6-week integration project with no response to onboarding form.",
+  },
+};
+
 const PRIORITY_STYLES = {
   Critical: { bg: "bg-red-500/15", text: "text-red-400", dot: "bg-red-500", border: "border-red-500/30" },
   High:     { bg: "bg-orange-500/15", text: "text-orange-400", dot: "bg-orange-500", border: "border-orange-500/30" },
@@ -64,32 +107,7 @@ const CATEGORY_STYLES = {
   "General Inquiry":    "bg-slate-500/15 text-slate-300 border-slate-500/30",
 };
 
-function TypingText({ text, speed = 12, onDone }) {
-  const [displayed, setDisplayed] = useState("");
-  const [done, setDone] = useState(false);
-  const idx = useRef(0);
-
-  useEffect(() => {
-    setDisplayed("");
-    idx.current = 0;
-    setDone(false);
-    if (!text) return;
-    const iv = setInterval(() => {
-      idx.current++;
-      setDisplayed(text.slice(0, idx.current));
-      if (idx.current >= text.length) {
-        clearInterval(iv);
-        setDone(true);
-        onDone && onDone();
-      }
-    }, speed);
-    return () => clearInterval(iv);
-  }, [text]);
-
-  return <span>{displayed}{!done && text && <span className="inline-block w-0.5 h-4 bg-cyan-400 animate-pulse ml-0.5 align-middle" />}</span>;
-}
-
-function MetricCard({ label, before, after, unit, improved }) {
+function MetricCard({ label, before, after, unit }) {
   const pct = Math.round(((before - after) / before) * 100);
   return (
     <div className="rounded-xl border border-white/8 bg-white/3 p-4 flex flex-col gap-2">
@@ -117,9 +135,9 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [results, setResults] = useState({});
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState("inbox"); // inbox | metrics
-  const [showResponse, setShowResponse] = useState({});
-  const [typingDone, setTypingDone] = useState({});
+  const [tab, setTab] = useState("inbox");
+  const [drafts, setDrafts] = useState({});
+  const [sent, setSent] = useState({});
 
   const ticket = SAMPLE_TICKETS.find(t => t.id === selected);
   const result = selected ? results[selected] : null;
@@ -128,42 +146,8 @@ export default function App() {
     if (results[t.id]) { setSelected(t.id); return; }
     setSelected(t.id);
     setLoading(true);
-    setShowResponse(r => ({ ...r, [t.id]: false }));
-    setTypingDone(r => ({ ...r, [t.id]: false }));
-
-try {
-  const prompt = `You are an expert Technical Account Manager AI assistant for a B2B SaaS/FinTech company. Analyze this support ticket and return ONLY a JSON object (no markdown, no backticks) with these exact fields:
-{"priority":"Critical|High|Medium|Low","category":"Technical Incident|API / Integration|SLA / Contract|Billing|Onboarding|General Inquiry","sentiment":"Frustrated|Neutral|Urgent|Positive","estimated_resolution_mins":integer,"routing":"which team e.g. Backline Engineering / TAM / Finance / Onboarding","summary":"one crisp sentence summarizing the issue","suggested_response":"a professional empathetic first-response email from a TAM using the customer name with next steps in 3-5 sentences"}
-
-Ticket from ${t.from} at ${t.company}.
-Subject: ${t.subject}
-Message: ${t.body}`;
-
-  const GEMINI_KEY = "PASTE_YOUR_KEY_HERE";
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${"AIzaSyAN2Z_ERCIagnMasTVYk98JCL7LagWCwOo"}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
-      }),
-    }
-  );
-
-  const data = await res.json();
-  console.log("Gemini response:", JSON.stringify(data));
-  console.log("Full data:", JSON.stringify(data));
-const candidates = data.candidates || data.promptFeedback;
-if (!candidates) throw new Error(JSON.stringify(data));
-const raw = data.candidates[0].content.parts[0].text;
-  const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
-  setResults(r => ({ ...r, [t.id]: parsed }));
-} catch (e) {
-  console.error("Full error:", e);
-  setResults(r => ({ ...r, [t.id]: { error: e.message || "Failed to analyze ticket." } }));
-}
+    await new Promise(res => setTimeout(res, 1200));
+    setResults(r => ({ ...r, [t.id]: DEMO_RESULTS[t.id] }));
     setLoading(false);
   }
 
@@ -214,12 +198,12 @@ const raw = data.candidates[0].content.parts[0].text;
           <div className="mt-6 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
             <div className="text-xs text-cyan-400 font-semibold uppercase tracking-wider mb-2">How it works</div>
             <div className="text-sm text-slate-400 leading-relaxed">
-              This tool uses Claude AI to instantly classify each incoming ticket by <strong className="text-slate-300">priority</strong> (Critical → Low), <strong className="text-slate-300">category</strong>, and <strong className="text-slate-300">customer sentiment</strong> — then generates a professional first-response draft and routes to the correct team. What previously took a TAM 8 minutes per ticket now takes under 30 seconds.
+              This tool instantly classifies each incoming ticket by <strong className="text-slate-300">priority</strong> (Critical → Low), <strong className="text-slate-300">category</strong>, and <strong className="text-slate-300">customer sentiment</strong> — then routes to the correct team. The TAM then composes a personalised response directly. What previously took 8 minutes per ticket now takes under 30 seconds to triage.
             </div>
           </div>
         </div>
       ) : (
-        <div className="flex h-screen" style={{ height: "calc(100vh - 110px)" }}>
+        <div className="flex" style={{ height: "calc(100vh - 110px)" }}>
           {/* Ticket list */}
           <div className="w-80 flex-shrink-0 overflow-y-auto" style={{ borderRight: "1px solid rgba(255,255,255,0.06)" }}>
             <div className="p-3 flex items-center justify-between">
@@ -241,9 +225,10 @@ const raw = data.candidates[0].content.parts[0].text;
                   <div className="text-xs text-slate-400 mb-1">{t.company}</div>
                   <div className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{t.subject}</div>
                   {r?.priority && (
-                    <div className="flex gap-1.5 mt-2">
+                    <div className="flex gap-1.5 mt-2 flex-wrap">
                       <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${ps.bg} ${ps.text} ${ps.border}`}>{r.priority}</span>
                       {r.category && <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_STYLES[r.category] || "bg-slate-500/15 text-slate-300 border-slate-500/30"}`}>{r.category}</span>}
+                      {sent[t.id] && <span className="text-xs px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">Responded</span>}
                     </div>
                   )}
                 </button>
@@ -259,7 +244,7 @@ const raw = data.candidates[0].content.parts[0].text;
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 </div>
                 <div className="text-white font-semibold">Select a ticket to begin AI triage</div>
-                <div className="text-sm text-slate-500 max-w-xs">Click any ticket in the inbox and the AI will instantly classify it, assess sentiment, and draft your first response.</div>
+                <div className="text-sm text-slate-500 max-w-xs">Click any ticket in the inbox. The system will instantly classify it, then you compose your own personalised response.</div>
               </div>
             ) : (
               <div className="p-6">
@@ -304,13 +289,8 @@ const raw = data.candidates[0].content.parts[0].text;
                     </div>
                   )}
 
-                  {result?.error && (
-                    <div className="p-4 text-sm text-red-400">{result.error}</div>
-                  )}
-
-                  {result && !result.error && !loading && (
+                  {result && !loading && (
                     <div className="p-4 grid grid-cols-2 gap-3">
-                      {/* Priority */}
                       <div className="rounded-lg p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
                         <div className="text-xs text-slate-500 mb-1.5 font-medium">Priority</div>
                         <div className="flex items-center gap-2">
@@ -319,19 +299,16 @@ const raw = data.candidates[0].content.parts[0].text;
                         </div>
                       </div>
 
-                      {/* Category */}
                       <div className="rounded-lg p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
                         <div className="text-xs text-slate-500 mb-1.5 font-medium">Category</div>
                         <span className={`text-xs px-2 py-1 rounded-lg border font-medium ${CATEGORY_STYLES[result.category] || "bg-slate-500/15 text-slate-300 border-slate-500/30"}`}>{result.category}</span>
                       </div>
 
-                      {/* Sentiment */}
                       <div className="rounded-lg p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
                         <div className="text-xs text-slate-500 mb-1.5 font-medium">Customer Sentiment</div>
                         <span className="text-sm font-semibold text-white">{result.sentiment}</span>
                       </div>
 
-                      {/* Resolution Est */}
                       <div className="rounded-lg p-3" style={{ background: "rgba(0,0,0,0.2)" }}>
                         <div className="text-xs text-slate-500 mb-1.5 font-medium">Est. Resolution</div>
                         <span className="text-sm font-semibold text-white">
@@ -341,7 +318,6 @@ const raw = data.candidates[0].content.parts[0].text;
                         </span>
                       </div>
 
-                      {/* Route to */}
                       <div className="rounded-lg p-3 col-span-2" style={{ background: "rgba(0,0,0,0.2)" }}>
                         <div className="text-xs text-slate-500 mb-1.5 font-medium">Route To</div>
                         <div className="flex items-center gap-2">
@@ -350,7 +326,6 @@ const raw = data.candidates[0].content.parts[0].text;
                         </div>
                       </div>
 
-                      {/* Summary */}
                       <div className="rounded-lg p-3 col-span-2" style={{ background: "rgba(0,0,0,0.2)" }}>
                         <div className="text-xs text-slate-500 mb-1.5 font-medium">AI Summary</div>
                         <p className="text-sm text-slate-300 leading-relaxed">{result.summary}</p>
@@ -359,33 +334,52 @@ const raw = data.candidates[0].content.parts[0].text;
                   )}
                 </div>
 
-                {/* Suggested Response */}
-                {result && !result.error && !loading && (
-  <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
-    <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Your Response</span>
-      <span className="ml-2 text-xs text-slate-600">— compose your reply as the TAM</span>
-    </div>
-    <div className="p-4">
-      <textarea
-        rows={6}
-        placeholder={`Hi ${ticket.from.split(" ")[0]},\n\nThank you for reaching out...`}
-        className="w-full rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
-        style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0", lineHeight: "1.6" }}
-      />
-      <div className="flex gap-2 mt-3">
-        <button className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", color: "white" }}>
-          ✓ Send Response
-        </button>
-        <button className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: "rgba(255,255,255,0.05)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
-          Save Draft
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-                
+                {/* Manual Response Compose Box */}
+                {result && !loading && (
+                  <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                    <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Your Response</span>
+                      <span className="ml-2 text-xs text-slate-600">— compose your reply as the TAM</span>
+                    </div>
+                    <div className="p-4">
+                      {sent[selected] ? (
+                        <div className="rounded-lg p-4 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap" style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Response Sent</span>
+                          </div>
+                          {drafts[selected]}
+                        </div>
+                      ) : (
+                        <>
+                          <textarea
+                            rows={6}
+                            value={drafts[selected] || ""}
+                            onChange={e => setDrafts(d => ({ ...d, [selected]: e.target.value }))}
+                            placeholder={`Hi ${ticket.from.split(" ")[0]},\n\nThank you for reaching out...`}
+                            className="w-full rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
+                            style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0", lineHeight: "1.6" }}
+                          />
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={() => { if (drafts[selected]?.trim()) setSent(s => ({ ...s, [selected]: true })); }}
+                              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all hover:opacity-90"
+                              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", color: "white" }}>
+                              ✓ Send Response
+                            </button>
+                            <button
+                              onClick={() => setDrafts(d => ({ ...d, [selected]: "" }))}
+                              className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                              style={{ background: "rgba(255,255,255,0.05)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
+                              Clear
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
